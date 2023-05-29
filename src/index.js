@@ -1,116 +1,71 @@
 import './css/styles.css';
 import { fetchCountries } from './fetchCountries';
-import debounce from 'lodash.debounce';
-import { Notify } from 'notiflix/build/notiflix-notify-aio';
+import * as debounce from 'lodash.debounce';
+import Notiflix from 'notiflix';
 
 const DEBOUNCE_DELAY = 300;
+const inputEl = document.querySelector('#search-box');
+const listEl = document.querySelector('.country-list');
+const infoEl = document.querySelector('.country-info');
 
-const refs = {
-  searchBox: document.getElementById('search-box'),
-  countryList: document.querySelector('.country-list'),
-  countryInfo: document.querySelector('.country-info'),
-};
+inputEl.addEventListener('input', debounce(onInput, DEBOUNCE_DELAY));
 
-refs.searchBox.addEventListener('input', debounce(onInput, DEBOUNCE_DELAY));
-
-function onInput(e) {
-  const inputValue = e.target.value.trim();
-
-  if (inputValue === '') {
-    return;
-  } else {
-    fetchCountries()
-      .then(countries => {
-        const searchCountries = countries.filter(country =>
-          country.name.official.toLowerCase().includes(inputValue)
-        );
-
-        if (searchCountries.length > 10) {
-          clearList();
-          clearInfo();
-          Notify.failure(
+function onInput(event) {
+  const inputValue = event.target.value.trim();
+  console.log(inputValue);
+  if (inputValue !== '') {
+    fetchCountries(inputValue)
+      .then(data => {
+        console.log(data);
+        if (data.length > 10) {
+          listEl.innerHTML = '';
+          infoEl.innerHTML = '';
+          Notiflix.Notify.warning(
             'Too many matches found. Please enter a more specific name.'
           );
-          return;
+        } else if (data.length >= 2 && data.length <= 10) {
+          listEl.innerHTML = '';
+          infoEl.innerHTML = '';
+          data.forEach(country => renderCountryRow(country));
         } else {
-          if (searchCountries.length > 1 && searchCountries.length < 10) {
-            clearList();
-            clearInfo();
-            const markupOfCountries = searchCountries.reduce(
-              (markup, searchCountry) =>
-                markup + createMarkupList(searchCountry),
-              ''
-            );
-            return updateList(markupOfCountries);
-          } else {
-            if (searchCountries.length === 1) {
-              clearList();
-              clearInfo();
-              const searchCountry = searchCountries[0];
-              const markupOfCountry = createMarkupInfo(searchCountry);
-              return updateInfo(markupOfCountry);
-            } else {
-              clearList();
-              clearInfo();
-              return Notify.failure('Oops, there is no country with that name');
-            }
-          }
+          listEl.innerHTML = '';
+          infoEl.innerHTML = '';
+          renderOneCountryInfo(data[0]);
         }
       })
-      .catch(err => {
-        console.log('err');
+      .catch(error => {
+        Notiflix.Notify.failure('Oops, there is no country with that name');
+        listEl.innerHTML = '';
+        infoEl.innerHTML = '';
       });
+  } else {
+    listEl.innerHTML = '';
+    infoEl.innerHTML = '';
   }
 }
 
-function createMarkupList({ name, flags }) {
-  const nameOfficial = name.official;
-  const flagSvg = flags.svg;
+function renderCountryRow(country) {
+  let official = country.name.official;
+  let svg = country.flags.svg;
+  let png = country.flags.png;
+  const markupForCountryRow = `<li><img width = "50px" src = "${svg}"/><h2>${official}</h2></li>`;
 
-  return `
-    <li class="country-item">
-    <img class="country-item-img" src="${flagSvg}"  width="30" height="20" />
-        <p class="country-item-name">${nameOfficial}</p>`;
+  listEl.innerHTML += markupForCountryRow;
+  console.log(listEl);
 }
 
-function createMarkupInfo({ name, flags, capital, population, languages }) {
-  const nameOfficial = name.official;
-  const flagSvg = flags.svg;
-  const language = Object.values(languages);
+function renderOneCountryInfo(country) {
+  let official = country.name.official;
+  let svg = country.flags.svg;
+  let capital = country.capital;
+  let population = country.population;
+  let languages = Object.values(country.languages);
 
-  return `
-  <div class="country-info-header">
-  <img class="country-info-img" src="${flagSvg}"  width="40" />
-  <h2 class="country-info-name">${nameOfficial}</h2>
-</div>
-<ul class="country-info-list">
-  <li class="country-info-item">
-    <h3 class="country-info-title">Capital:</h3>
-    <p class="country-info-text">${capital}</p>
-  </li>
-  <li class="country-info-item">
-    <h3 class="country-info-title">Population:</h3>
-    <p class="country-info-text">${population}</p>
-  </li>
-  <li class="country-info-item">
-    <h3 class="country-info-title">Languages:</h3>
-    <p class="country-info-text">${language}</p>
-  </li>
-</ul>`;
-}
-
-function updateList(markup) {
-  refs.countryList.insertAdjacentHTML('beforeend', markup);
-}
-
-function updateInfo(markup) {
-  refs.countryInfo.insertAdjacentHTML('beforeend', markup);
-}
-
-function clearList() {
-  refs.countryList.innerHTML = '';
-}
-
-function clearInfo() {
-  refs.countryInfo.innerHTML = '';
+  const markupForSingleCountry = `
+  <img width = "50px" src = "${svg}"/>
+  <h2>${official}</h2>
+  <p><b>Capital</b> ${capital}</p>
+  <p><b>Population</b> ${population}</p>
+  <p><b>Languages</b> ${languages}</p>`;
+  infoEl.innerHTML += markupForSingleCountry;
 }
